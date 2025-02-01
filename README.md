@@ -268,12 +268,16 @@ pattern = 'song_data/.*';
 ### Project Implementation : 
 Here is your project execution description, paraphrased and broken down step by step:
 
-1. **Data Extraction** : AWS Lambda is used as a serverless function to extract product data from the Flipkart API at regular intervals.The extraction script is deployed to AWS Lambda, ensuring automatic execution without needing a dedicated server.AWS CloudWatch Events is configured to trigger the Lambda function every hour, ensuring continuous data retrieval.The extracted data is fetched in JSON format) and temporarily stored in Lambda’s memory.If required, error handling and logging mechanisms are integrated using AWS CloudWatch Logs for monitoring and troubleshooting.
+1. **Data Extraction** : AWS Lambda is used as a serverless function to extract the top trending songs, albums, and their artists from the Spotify API at regular intervals. The extraction script is deployed to AWS Lambda, ensuring automatic execution without the need for a dedicated server. AWS CloudWatch Events is configured to trigger the Lambda function every hour, ensuring continuous data retrieval. The extracted data is fetched in JSON format and temporarily stored in Lambda’s memory. If required, error handling and logging mechanisms are integrated using AWS CloudWatch Logs for monitoring and troubleshooting.
   
-2.  **Store Raw Data** : Once data is extracted, it is directly stored in an AWS S3 bucket for persistent storage.S3 acts as a centralized data lake, ensuring scalability, security, and cost-effective storage.
-The raw data is stored in its original format (JSON, CSV, or Parquet) to maintain flexibility for further processing.S3 bucket policies and access control settings are applied to ensure secure data storage and access control.Versioning can be enabled in the S3 bucket to track changes and maintain historical data if needed.
+2.  **Store Raw Data** : Once the data is extracted, it is directly stored in an AWS S3 bucket for persistent storage. S3 acts as a centralized data lake, ensuring scalability, security, and cost-effective storage. The raw data is stored in its original format (JSON) to maintain flexibility for further processing. S3 bucket policies and access control settings are applied to ensure secure data storage and proper access control. Versioning can be enabled in the S3 bucket to track changes and maintain historical data if needed.
 
-3. **Data Transformation** : A transformation function is implemented within AWS Lambda to process the raw data stored in S3.The function cleans, structures, and converts the raw data into a normalized format suitable for analytics.Transformation steps may include:Filtering and cleaning: Removing missing or inconsistent records.Standardization: Converting data types and formatting fields consistently.Enrichment: Adding calculated fields or additional metadata if needed.The transformed data is then stored in another S3 bucket for downstream processing.An S3 event trigger can be set up to automatically execute the transformation function whenever new raw data is uploaded.
+3. **Data Transformation** : A transformation function is implemented within AWS Lambda to process the raw data stored in S3. The function cleans, structures, and converts the raw data into a normalized format suitable for analytics. The transformation steps may include:
+
+- Filtering and cleaning: Removing missing or inconsistent records.
+- Standardization: Converting data types and formatting fields consistently.
+- Enrichment: Adding calculated fields or additional metadata if needed.
+The transformed data is then stored in another S3 bucket for downstream processing. An S3 event trigger can be set up to automatically execute the transformation function whenever new raw data is uploaded.
 
 4. **Data Loading into Snowflake** : 
 
