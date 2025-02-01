@@ -2,13 +2,13 @@
 🎵 AWS-Based ETL Pipeline for Spotify Data → Snowflake
 
 ### Overview
-This project involves building an ETL (Extract, Transform, Load) data pipeline that extracts product data from the Flipkart API, transforms it into the desired format, and loads it into a Snowflake database using Auto-Ingest Snowpipe. This enables real-time or near real-time data ingestion, ensuring efficient and automated data processing for further analysis and reporting.
+This project involves building an ETL (Extract, Transform, Load) data pipeline that extracts top trending songs from the Spotify API, transforms it into the desired format, and loads it into a Snowflake database using Auto-Ingest Snowpipe. This enables real-time or near real-time data ingestion, ensuring efficient and automated data processing for further analysis and reporting.
 
 ### Architecture
 ![Architecture Diagram](https://github.com/sahil118/snowflake-snowpipe/blob/main/Screenshot%202025-02-01%20121254.png)
 
 ### About API/Dataset:
-The Real-Time Flipkart API provides product details such as name, price, and ratings based on their popularity. [API Endpoint](https://rapidapi.com/opendatapoint-opendatapoint-default/api/real-time-flipkart-api/playground).
+The Real-Time Spotify API provides songs and their ablum,artists based on their popularity. [API Endpoint](https://open.spotify.com/playlist/4z5whwZPQuMotubMwwlsLB).
 
 ### Tools Utilized
 
@@ -22,38 +22,32 @@ The Real-Time Flipkart API provides product details such as name, price, and rat
 
 ### Code for extraction Raw data into s3 : 
 ```
-import http.client
 import json
 import os
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
 import boto3
 from datetime import datetime
-
-
 def lambda_handler(event, context):
-    api_key = os.environ.get('RAPIDAPI_KEY')  
-    api_host = os.environ.get('RAPIDAPI_HOST')
-    conn = http.client.HTTPSConnection("real-time-flipkart-api.p.rapidapi.com")
-
-    headers = {
-        'x-rapidapi-key': api_key,
-        'x-rapidapi-host': api_host
-    }
-
-    conn.request("GET", "/products-by-brand?brand_id=tyy%2C4io&page=1&sort_by=popularity", headers=headers)
-
-    res = conn.getresponse()
-    data = res.read()
-
-    decoded_data = data.decode("utf-8")
-    parsed_data = json.loads(decoded_data) 
+    client_id = os.environ.get('client_id')
+    client_secret = os.environ.get('client_secret')
+    #cache_file = "/tmp/spotify_cache.cache"
+    client_credentials_manager = SpotifyClientCredentials(client_id = client_id , client_secret=client_secret)
+    sp = spotipy.Spotify(client_credentials_manager = client_credentials_manager)
+    playlists = sp.user_playlists('spotify')
+    #sp.cache_path = cache_file
+    playlist_link = "https://open.spotify.com/playlist/4z5whwZPQuMotubMwwlsLB"
+    playlist_uri = playlist_link.split("/")[-1]
+    spotify_data = sp.playlist_tracks(playlist_uri)
 
     client = boto3.client('s3')
-    filename = "flipkart_raw_" + str(datetime.now()) +  ".json" #loding it into s3 bucket (Raw data)
+    filename = "spotify_raw_" + str(datetime.now()) + ".json"
     client.put_object(
-        Bucket = "flipkart-data-project-sahil",
-        Key="flip-raw-data/pending-raw-data/" + filename,
-        Body = json.dumps(parsed_data)
+        Bucket="spotify-etl-project-sahil",
+        Key="raw-data/to_processed/" + filename,
+        Body=json.dumps(spotify_data)
     )
+
    
 
 ```
@@ -61,96 +55,117 @@ def lambda_handler(event, context):
 ```
 import json
 import boto3
-from datetime import datetime
 from io import StringIO
-import pandas as pd 
+import pandas as pd
+from datetime import datetime
+def album(data):
+    album_list = []
+    for row in data['items']:
+        album_id = row['track']['album']['id']
+        album_name = row['track']['album']['name']
+        album_release_date = row['track']['album']['release_date']
+        album_total_track = row['track']['album']['total_tracks']
+        album_url = row['track']['album']['external_urls']['spotify']
+        album_element = {'album_id':album_id,'name':album_name,'release_date':album_release_date,'track':album_total_track,'url':album_url}
+        album_list.append(album_element)
+    return album_list
 
-def product(data):
-    product_list = []
-    for row in data['products']:
-        product_id = row['pid']
-        Brand_Name = row['brand']
-        Product_name = row['title']
-        link = row['url']
-        badge = row['badge']
-        Mrp_price = row['mrp']
-        Actuall_price = row['price']
-        Product_fetures = row['highlights']
-        product_element = {'product_id':product_id,'Brand_Name':Brand_Name,'Product_name':Product_name,
-                        'link':link,'badge':badge,'Mrp_price':Mrp_price,'Selling_price':Actuall_price,'Fetures':Product_fetures}
-        product_list.append(product_element)
-    
-    return product_list
+def artist(data):
+    artist_list = []
+    for row in data['items']:
+        #print(row.items())
+        for key,values in row.items():
+            if key == 'track':
+                for artist in values['artists']:
+                    artist_dict = {'artist_id' : artist['id'],'artist_name': artist['name'],'external_url':artist['href']}
+                    artist_list.append(artist_dict)
+    return artist_list
 
-def rating(data):
-    
-    rating_list = []
-    for row in data['products']:
-        product_id = row['pid']
-        Average_review = row['rating']['average']
-        total_ratings = row['rating']['count']
-        Review_count = row['rating']['reviewCount']
-        # Breaking down the 'breakup' list into individual star ratings
-        one_star = row['rating']['breakup'][0]  # Number of 1-star ratings
-        two_star = row['rating']['breakup'][1]  # Number of 2-star ratings
-        three_star = row['rating']['breakup'][2]  # Number of 3-star ratings
-        four_star = row['rating']['breakup'][3]  # Number of 4-star ratings
-        five_star = row['rating']['breakup'][4]  # Number of 5-star ratings
-        rating_elements = {'Average_review':Average_review,'total_ratings':total_ratings,
-                        'Feed_back':Review_count,'one_star':one_star,'two_star':two_star,
-                        'three_star':three_star,'four_star':four_star,'five_star':five_star,'product_id':product_id}
-        rating_list.append(rating_elements)
-    
-    return rating_list
+def songs(data):
+    song_list = []
+    for row in data['items']:
+        song_id = row['track']['id']
+        album_id = row['track']['album']['id']
+        for row2 in row['track']['album']['artists']:
+            artist_id = row2['id']
+        song_name = row['track']['name']
+        song_popularity = row['track']['popularity']
+        song_duration = row['track']['duration_ms']
+        song_url = row['track']['external_urls']['spotify']
+        song_added_date = row['added_at']
+        song_dict={'song_id':song_id,'album_id':album_id,'artist_id':artist_id,'song_name':song_name,'song_popularity':song_popularity,
+                'song_duration':song_duration,'song_url':song_url,'song_added_date':song_added_date}
+        song_list.append(song_dict)
+    return song_list
+
 
 def lambda_handler(event, context):
     s3 = boto3.client('s3')
-    Bucket = "flipkart-data-project-sahil"
-    Key = "flip-raw-data/pending-raw-data/"
+    Bucket = "spotify-etl-project-sahil"
+    Key = "raw-data/to_processed/"
 
-
-    flipkart_data = []
-    flipkart_keys = []
+    spotify_data = []
+    spotify_key = []
     for file in s3.list_objects(Bucket=Bucket,Prefix=Key)['Contents']:
         file_key = file['Key']
-        if file_key.split('.')[-1] == "json":
+        if file_key.split('.')[-1] == 'json':
             response = s3.get_object(Bucket=Bucket,Key=file_key)
             content = response['Body']
             jsonObject = json.loads(content.read())
-            flipkart_data.append(jsonObject)
-            flipkart_keys.append(file_key)
+            print(jsonObject)
+            spotify_data.append(jsonObject)
+            spotify_key.append(file_key)
+
+    for data in spotify_data:
+        album_list = album(data)
+        artist_list = artist(data)
+        song_list = songs(data)
     
+        album_df = pd.DataFrame.from_dict(album_list)
+        album_df = album_df.drop_duplicates(['album_id'])
 
-    for data in flipkart_data:
-        product_list = product(data)
-        rating_list =  rating(data)
+        artist_df = pd.DataFrame.from_dict(artist_list)
+        artist_df = artist_df.drop_duplicates(['artist_id'])
+        artist_df.drop(artist_df[artist_df['artist_name'] == ''].index,inplace=True)
+        artist_df.reset_index(drop=True,inplace=True)
 
-        prd_df = pd.DataFrame.from_dict(product_list)
-        prd_df = prd_df.drop_duplicates(subset=['product_id'])
+        song_df = pd.DataFrame.from_dict(song_list)
+        song_df = song_df.drop_duplicates(['song_id'])
+        song_df = song_df.drop_duplicates(['album_id'])
+        song_df = song_df.drop_duplicates(['artist_id'])
+        song_df.drop(song_df[song_df['song_name'] == ''].index,inplace=True)
+        song_df.reset_index(drop=True,inplace=True)
 
-        rating_df = pd.DataFrame.from_dict(rating_list)
-        rating_df = rating_df.drop_duplicates(subset=['product_id'])
+        album_df['release_date'] = pd.to_datetime(album_df['release_date'],format='%Y-%m-%d',errors='coerce')
+        album_df.dropna(subset=['release_date'], inplace=True)
+        album_df.reset_index(drop=True, inplace=True)
+        song_df['song_added_date'] = pd.to_datetime(song_df['song_added_date'])
 
-        product_key = "flip-trans-data/product-details-data/product_transformed_data" + str(datetime.now()) + ".csv"
-        product_buffer = StringIO()
-        prd_df.to_csv(product_buffer,index=False)
-        prd_content = product_buffer.getvalue()
-        s3.put_object(Bucket=Bucket, Key=product_key, Body=prd_content)
+        songs_key = "tranformed_data/song_data/songs_transformed_"+str(datetime.now())+".csv"
+        song_buffer=StringIO()
+        song_df.to_csv(song_buffer,index=False)
+        song_content = song_buffer.getvalue()
+        s3.put_object(Bucket=Bucket,Key=songs_key,Body=song_content)
 
-        rating_key = "flip-trans-data/rating-details-data/rating_transformed_data" + str(datetime.now()) + ".csv"
-        rating_buffer = StringIO()
-        rating_df.to_csv(rating_buffer,index=False)
-        rating_content = rating_buffer.getvalue()
-        s3.put_object(Bucket=Bucket, Key=rating_key, Body=rating_content)
+        album_key = "tranformed_data/album_data/album_transformed_"+str(datetime.now())+".csv"
+        album_buffer=StringIO()
+        album_df.to_csv(album_buffer,index=False)
+        album_content = album_buffer.getvalue()
+        s3.put_object(Bucket=Bucket,Key=album_key,Body=album_content)
+
+        artist_key = "tranformed_data/artist_data/artist_transformed_"+str(datetime.now())+".csv"
+        artist_buffer=StringIO()
+        artist_df.to_csv(artist_buffer,index=False)
+        artist_content = artist_buffer.getvalue()
+        s3.put_object(Bucket=Bucket,Key=artist_key,Body=artist_content)
     
-
     s3_resource = boto3.resource('s3')
-    for key in flipkart_keys:
+    for key in spotify_key:
         copy_source = {
             'Bucket' : Bucket,
             'Key' : key
         }
-        s3_resource.meta.client.copy(copy_source,Bucket,"flip-raw-data/processed-raw-data/" + key.split("/")[-1])
+        s3_resource.meta.client.copy(copy_source,Bucket,'raw-data/processed/' + key.split('/')[-1])
         s3_resource.Object(Bucket,key).delete()
 
 
@@ -258,7 +273,7 @@ Here is your project execution description, paraphrased and broken down step by 
 2.  **Store Raw Data** : Once data is extracted, it is directly stored in an AWS S3 bucket for persistent storage.S3 acts as a centralized data lake, ensuring scalability, security, and cost-effective storage.
 The raw data is stored in its original format (JSON, CSV, or Parquet) to maintain flexibility for further processing.S3 bucket policies and access control settings are applied to ensure secure data storage and access control.Versioning can be enabled in the S3 bucket to track changes and maintain historical data if needed.
 
-3. **Data Transformation** : A transformation function is implemented within AWS Lambda to process the raw data stored in S3.The function cleans, structures, and converts the raw data into a normalized format suitable for analytics.Transformation steps may include:Filtering and cleaning: Removing missing or inconsistent records.Standardization: Converting data types and formatting fields consistently.Enrichment: Adding calculated fields or additional metadata if needed.The transformed data is then stored in another S3 bucket (or a separate folder within the same bucket) for downstream processing.An S3 event trigger can be set up to automatically execute the transformation function whenever new raw data is uploaded.
+3. **Data Transformation** : A transformation function is implemented within AWS Lambda to process the raw data stored in S3.The function cleans, structures, and converts the raw data into a normalized format suitable for analytics.Transformation steps may include:Filtering and cleaning: Removing missing or inconsistent records.Standardization: Converting data types and formatting fields consistently.Enrichment: Adding calculated fields or additional metadata if needed.The transformed data is then stored in another S3 bucket for downstream processing.An S3 event trigger can be set up to automatically execute the transformation function whenever new raw data is uploaded.
 
 4. **Data Loading into Snowflake** : 
 
@@ -275,4 +290,4 @@ The raw data is stored in its original format (JSON, CSV, or Parquet) to maintai
     - Once loaded, the data is ready for further analysis, reporting, and integration with BI tools or machine learning models.
 
 ### Conclusion : 
-This automated pipeline ensures seamless data ingestion, minimal latency, and real-time availability of Flipkart product data in Snowflake, making it highly efficient for business intelligence and analytics.
+This automated pipeline ensures seamless data ingestion, minimal latency, and real-time availability of Spotify trending song data in Snowflake, making it highly efficient for business intelligence and analytics.
