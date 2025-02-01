@@ -5,7 +5,7 @@
 This project involves building an ETL (Extract, Transform, Load) data pipeline that extracts product data from the Flipkart API, transforms it into the desired format, and loads it into a Snowflake database using Auto-Ingest Snowpipe. This enables real-time or near real-time data ingestion, ensuring efficient and automated data processing for further analysis and reporting.
 
 ### Architecture
-![Architecture Diagram](https://github.com/sahil118/flipkart-end-to-end-data-engineering-project/blob/main/flipkart-project-architecture.png)
+![Architecture Diagram](https://github.com/sahil118/snowflake-snowpipe/blob/main/Screenshot%202025-02-01%20121254.png)
 
 ### About API/Dataset:
 The Real-Time Flipkart API provides product details such as name, price, and ratings based on their popularity. [API Endpoint](https://rapidapi.com/opendatapoint-opendatapoint-default/api/real-time-flipkart-api/playground).
@@ -263,16 +263,16 @@ The raw data is stored in its original format (JSON, CSV, or Parquet) to maintai
 4. **Data Loading into Snowflake** : 
 
 
-    A Snowflake table is created to store the transformed data from the S3 bucket. The schema is designed based on the data structure to ensure efficient querying and analysis.
+   - A Snowflake table is created to store the transformed data from the S3 bucket. The schema is designed based on the data structure to ensure efficient querying and analysis.
     The data loading process is fully automated using Snowpipe, which enables real-time or near real-time ingestion.
 
-    Snowpipe’s auto-ingest feature is configured to detect new files in the S3 bucket as soon as they are uploaded.
+   - Snowpipe’s auto-ingest feature is configured to detect new files in the S3 bucket as soon as they are uploaded.
     A notification mechanism (such as AWS S3 event notifications with Amazon SNS or SQS) is set up to trigger Snowpipe whenever new transformed data is added to S3.
 
-    Snowpipe uses a COPY INTO command to efficiently load the data from S3 into the Snowflake table, ensuring optimized performance.
+   - Snowpipe uses a COPY INTO command to efficiently load the data from S3 into the Snowflake table, ensuring optimized performance.
     Data validation and monitoring mechanisms are implemented using Snowflake’s query history, metadata tables, and logging features to track ingestion status and troubleshoot issues if needed.
 
-    Once loaded, the data is ready for further analysis, reporting, and integration with BI tools or machine learning models.
+    - Once loaded, the data is ready for further analysis, reporting, and integration with BI tools or machine learning models.
 
 ### Conclusion : 
 This automated pipeline ensures seamless data ingestion, minimal latency, and real-time availability of Flipkart product data in Snowflake, making it highly efficient for business intelligence and analytics.
