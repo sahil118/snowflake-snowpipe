@@ -5,7 +5,7 @@
 This project involves building an ETL (Extract, Transform, Load) data pipeline that extracts top trending songs from the Spotify API, transforms it into the desired format, and loads it into a Snowflake database using Auto-Ingest Snowpipe. This enables real-time or near real-time data ingestion, ensuring efficient and automated data processing for further analysis and reporting.
 
 ### Architecture
-![Architecture Diagram](https://github.com/sahil118/snowflake-snowpipe/blob/main/Screenshot%202025-02-01%20121254.png)
+![Architecture Diagram](https://github.com/sahil118/snowflake-snowpipe/blob/main/Screenshot%202025-02-01%20145416.png)
 
 ### About API/Dataset:
 The Real-Time Spotify API provides songs and their ablum,artists based on their popularity. [API Endpoint](https://open.spotify.com/playlist/4z5whwZPQuMotubMwwlsLB).
